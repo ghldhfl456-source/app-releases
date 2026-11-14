@@ -9,12 +9,12 @@
 
 ### APK 내려받기 (휴대폰만으로)
 
-1. GitHub에서 이 저장소의 **Actions** 탭 → **NetMonitor APK 빌드** → 맨 위(가장 최근) 초록색 실행을 엽니다.
-2. 아래쪽 **Artifacts**의 `netmonitor-debug-apk`를 눌러 내려받습니다. (GitHub 로그인 필요, 90일 뒤 사라짐)
-3. 받은 zip을 파일 앱에서 풀고 `app-debug.apk`를 눌러 설치합니다. 처음에는 "출처를 알 수 없는 앱 설치"를 허용해야 합니다.
+1. 이 저장소의 **Releases**에서 이름이 `netmonitor-`로 시작하는 가장 최근 항목을 엽니다.
+2. **Assets**의 `netmonitor.apk`를 눌러 내려받습니다.
+3. 받은 파일을 눌러 설치합니다. 처음에는 "출처를 알 수 없는 앱 설치"를 허용해야 합니다.
 4. 앱을 열고 알림 권한을 허용합니다. 거부해도 기록은 되지만 알림창 속도 표시가 안 보입니다.
 
-`netmonitor/` 아래 파일이 push될 때마다 자동으로 빌드됩니다.
+`netmonitor/` 아래 파일이 push될 때마다 자동으로 빌드되어 Releases에 새 항목으로 올라갑니다.
 빌드마다 같은 키(`netmonitor/debug.keystore`)로 서명하므로 새 APK를 그대로 덮어 설치하면 기록이 유지됩니다.
 
 ### 쓰는 법

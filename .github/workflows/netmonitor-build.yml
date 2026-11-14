@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Releases에 올리기 위해
     defaults:
       run:
         working-directory: netmonitor
@@ -33,3 +35,15 @@ jobs:
           name: netmonitor-debug-apk
           path: netmonitor/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # 휴대폰에서 바로 받을 수 있게 Releases에도 올린다 (태그: netmonitor-<빌드 번호>)
+      - name: Releases에 APK 올리기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/debug/app-debug.apk netmonitor.apk
+          gh release create "netmonitor-${{ github.run_number }}" netmonitor.apk \
+            --target "$GITHUB_SHA" \
+            --title "$(TZ=Asia/Seoul date +%y%m%d)_${version}" \
+            --notes "네트워크 모니터 (속도 측정 · 사용량 기록)"
