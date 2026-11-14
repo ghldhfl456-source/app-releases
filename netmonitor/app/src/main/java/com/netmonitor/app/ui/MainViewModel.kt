@@ -59,7 +59,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun load(p: Period): ChartData {
         val now = System.currentTimeMillis()
-        val from = if (p == Period.TODAY) startOfToday() else now - p.lengthMs
+        val from = p.startAt(now)
 
         val points = ArrayList<ChartPoint>()
         points += ChartPoint(from, 0, 0)
@@ -79,10 +79,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return ChartData(p, from, now, points, prevTotal)
     }
 
-    private fun startOfToday(): Long = Calendar.getInstance().apply {
+}
+
+/** 기간의 시작 시각. "오늘"만 자정부터, 나머지는 지금에서 기간 길이만큼 앞. */
+fun Period.startAt(now: Long): Long =
+    if (this != Period.TODAY) now - lengthMs
+    else Calendar.getInstance().apply {
+        timeInMillis = now
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
-}
+
+val Period.timePattern: String
+    get() = if (this == Period.HOUR || this == Period.TODAY) "HH:mm" else "M/d"

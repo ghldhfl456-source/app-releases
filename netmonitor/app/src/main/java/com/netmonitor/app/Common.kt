@@ -49,3 +49,9 @@ fun formatSpeed(bytesPerSec: Double): String = when {
     bytesPerSec >= 1024.0 * 1024 -> String.format(Locale.US, "%.2f MB/s", bytesPerSec / (1024.0 * 1024))
     else -> String.format(Locale.US, "%.1f KB/s", bytesPerSec / 1024.0)
 }
+
+/** 초당 바이트를 속도 측정 사이트처럼 Mbps 숫자로. */
+fun formatMbps(bytesPerSec: Double): String {
+    val mbps = bytesPerSec * 8 / 1_000_000
+    return String.format(Locale.US, if (mbps >= 100) "%.0f" else if (mbps >= 10) "%.1f" else "%.2f", mbps)
+}

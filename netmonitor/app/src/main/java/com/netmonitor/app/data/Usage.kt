@@ -5,11 +5,13 @@ import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
+import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 
 /** 1분 동안 쓴 바이트 수. minute은 분 단위로 내림한 epoch 밀리초. */
 @Entity(tableName = "usage")
@@ -59,9 +61,34 @@ abstract class UsageDao {
     abstract suspend fun deleteOlderThan(before: Long)
 }
 
-@Database(entities = [UsageEntity::class], version = 1, exportSchema = false)
+/** 속도 측정 한 번의 결과. 속도는 초당 바이트. */
+@Entity(tableName = "speed_test")
+data class SpeedTestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val time: Long,
+    val connection: String,
+    val downBps: Double,
+    val upBps: Double,
+    val pingMs: Double,
+)
+
+@Dao
+interface SpeedTestDao {
+    @Insert
+    suspend fun insert(test: SpeedTestEntity)
+
+    @Query("SELECT * FROM speed_test WHERE time >= :from ORDER BY time")
+    fun since(from: Long): Flow<List<SpeedTestEntity>>
+
+    /** 가장 최근 두 번(최신이 먼저). 증감 표시에 쓴다. */
+    @Query("SELECT * FROM speed_test ORDER BY time DESC LIMIT 2")
+    fun latestTwo(): Flow<List<SpeedTestEntity>>
+}
+
+@Database(entities = [UsageEntity::class, SpeedTestEntity::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun usageDao(): UsageDao
+    abstract fun speedTestDao(): SpeedTestDao
 
     companion object {
         @Volatile
