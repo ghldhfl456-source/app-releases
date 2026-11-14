@@ -29,6 +29,8 @@ data class TestProgress(
     val downBps: Double? = null,
     val upBps: Double? = null,
     val error: String? = null,
+    /** 측정 도중 끊기거나 거절된 연결 횟수. 0이 아니면 결과가 실제보다 낮을 수 있다. */
+    val connectionErrors: Int = 0,
 )
 
 /**
@@ -50,13 +52,20 @@ object SpeedTester {
         p = p.copy(pingMs = ping())
         p = p.copy(phase = TestPhase.DOWNLOAD)
         onProgress(p)
-        val down = measure({ counter, stop -> download(counter, stop) }) { onProgress(p.copy(currentBps = it)) }
+        val (down, downErrors) =
+            measure({ counter, stop -> download(counter, stop) }) { onProgress(p.copy(currentBps = it)) }
 
-        p = p.copy(downBps = down, phase = TestPhase.UPLOAD, currentBps = 0.0)
+        p = p.copy(downBps = down, connectionErrors = downErrors, phase = TestPhase.UPLOAD, currentBps = 0.0)
         onProgress(p)
-        val up = measure({ counter, stop -> upload(counter, stop) }) { onProgress(p.copy(currentBps = it)) }
+        val (up, upErrors) =
+            measure({ counter, stop -> upload(counter, stop) }) { onProgress(p.copy(currentBps = it)) }
 
-        p = p.copy(upBps = up, phase = TestPhase.DONE, currentBps = 0.0)
+        p = p.copy(
+            upBps = up,
+            connectionErrors = downErrors + upErrors,
+            phase = TestPhase.DONE,
+            currentBps = 0.0,
+        )
         onProgress(p)
         p
     }
@@ -83,13 +92,14 @@ object SpeedTester {
     }
 
     /**
-     * worker를 여러 개 돌리며 주고받은 바이트를 세고, 워밍업 뒤 구간의 평균 속도를 돌려준다.
-     * 모든 연결이 실패하면 예외를 던진다.
+     * worker를 여러 개 돌리며 주고받은 바이트를 세고, 워밍업 뒤 구간의 평균 속도와
+     * 연결 오류 횟수를 돌려준다. 끊긴 연결은 다시 붙여서 연결 수가 줄어든 채로 재지 않게 한다.
+     * 한 바이트도 못 주고받으면 예외를 던진다.
      */
     private suspend fun measure(
         worker: (counter: AtomicLong, stop: () -> Boolean) -> Unit,
         onSpeed: (Double) -> Unit,
-    ): Double = coroutineScope {
+    ): Pair<Double, Int> = coroutineScope {
         val counter = AtomicLong()
         val failures = AtomicLong()
         var firstError: Throwable? = null
@@ -98,13 +108,16 @@ object SpeedTester {
         val jobs = List(CONNECTIONS) {
             launch {
                 val stop = { !isActive || System.nanoTime() >= deadline }
-                try {
-                    worker(counter, stop)
-                } catch (e: IOException) {
-                    // 시간이 다 돼 끊은 것이 아니면 실패로 센다
-                    if (!stop()) {
-                        firstError = e
-                        failures.incrementAndGet()
+                while (!stop()) {
+                    try {
+                        worker(counter, stop)
+                    } catch (e: IOException) {
+                        // 시간이 다 돼 끊은 것이 아니면 오류로 세고 잠깐 뒤 다시 연결한다
+                        if (!stop()) {
+                            firstError = e
+                            failures.incrementAndGet()
+                            Thread.sleep(300)
+                        }
                     }
                 }
             }
@@ -130,8 +143,8 @@ object SpeedTester {
                 onSpeed(speed)
             }
         }
-        if (failures.get() >= CONNECTIONS) throw IOException(firstError?.message ?: "연결 실패")
-        speed
+        if (counter.get() == 0L) throw IOException(firstError?.message ?: "연결 실패")
+        speed to failures.get().toInt()
     }
 
     private fun download(counter: AtomicLong, stop: () -> Boolean) {

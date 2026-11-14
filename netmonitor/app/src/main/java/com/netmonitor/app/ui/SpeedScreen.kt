@@ -156,6 +156,15 @@ private fun TestCard(progress: TestProgress, running: Boolean, onToggle: () -> U
                 )
             }
 
+            if (progress.phase == TestPhase.DONE && progress.connectionErrors > 0) {
+                Text(
+                    "측정 중 연결이 ${progress.connectionErrors}번 끊겼습니다. 결과가 실제보다 낮을 수 있습니다.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+
             Button(onClick = onToggle, modifier = Modifier.fillMaxWidth()) {
                 Text(if (running) "중지" else "측정 시작", fontSize = 16.sp)
             }
